@@ -1,0 +1,20 @@
+{
+  "name": "reactive-rest-api",
+  "version": "0.0.1",
+  "description": "nanoplex ractive rest api",
+  "main": "reactive-rest-api.js",
+  "scripts": {
+    "test": "test.js"
+  },
+  "keywords": [
+    "nanoplex",
+    "reactive",
+    "rest",
+    "api"
+  ],
+  "author": "mathias hansen",
+  "license": "MIT",
+  "dependencies": {
+    "rx": "^3.1.2"
+  }
+}
