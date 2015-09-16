@@ -6,18 +6,38 @@ function testResponse(name: string = "world"): Promise<string> {
 	});
 }
 
-var testRoute: ReactiveRestApi.Route = {
-	path: "/test",
-	method: "GET",
-	response: testResponse,
-	statusCode: 200,
-	contentType: "text/text"
+
+var options: ReactiveRestApi.ServerOptions = {
+	"routePrefix": "/api",
+	"port": 9000,
+	"routes": [
+		{
+			"name": "test",
+			"object_defenition": {
+				"test": "",
+				"test1": ""
+			},
+			"get": {
+				"path": "/{test}",
+				"promise": new Promise<string>(resolve => resolve("get"))
+			},
+			"get_all": {
+				"promise": new Promise<string>(resolve => resolve("get all"))
+			},
+			"post": {
+				"path": "/{test, test1}",
+				"promise": new Promise<string>(resolve => resolve("post"))
+			},
+			"put": {
+				"path": "/{test, test1}",
+				"promise": new Promise<string>(resolve => resolve("put"))
+			},
+			"delete": {
+				"path": "/{test}",
+				"promise": new Promise<string>(resolve => resolve("delete"))
+			}
+		}
+	]
 };
 
-var errorRoute: ReactiveRestApi.DefaultRoute = {
-	response: "error",
-	statusCode: 404,
-	contentType: "text/text"
-}
-
-ReactiveRestApi.Server.create([testRoute], errorRoute, 9000);
+ReactiveRestApi.Server.create(options);

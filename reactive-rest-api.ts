@@ -2,10 +2,10 @@
 /// <reference path="node_modules/rx/ts/rx" />
 /// <reference path="es6-promise.d.ts" />
 
-//import http = require("http");
+import http = require("http");
 
-var http = require("http");
-var Rx = require("rx");
+//var http = require("http");
+//var Rx = require("rx");
 
 module ReactiveRestApi {
 	class React {
@@ -131,8 +131,25 @@ module ReactiveRestApi {
 		}
 	}
 	
+	export interface ServerOptionPath {
+		name: string;
+		path?: string;
+		promise: Promise<string>;
+	}
+	
+	export interface ServerOptions {
+		routePrefix: string;
+		port: number;
+		objectDefenition: any;
+		get: ServerOptionPath;
+		get_all: ServerOptionPath;
+		post: ServerOptionPath;
+		put: ServerOptionPath;
+		delete: ServerOptionPath;
+	}
+	
 	export class Server {
-		static create(routes: Route[], defaultRoute: DefaultRoute, port: number) {
+		static create(options: ServerOptions) {
 			Rx.Observable.create<{request: http.IncomingMessage, routes: Route[], response: http.ServerResponse}>(observer => {
 				var server = http.createServer((request, response) => {
 					observer.onNext({
@@ -144,7 +161,7 @@ module ReactiveRestApi {
 				
 				server.on("error", observer.onError);
 				
-				server.listen(port);
+				server.listen(options.port);
 			})
 			.map(server => {
 				var request = server.request,

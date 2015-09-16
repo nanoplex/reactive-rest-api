@@ -1,6 +1,6 @@
 {
   "name": "reactive-rest-api",
-  "version": "0.0.1",
+  "version": "0.2.0",
   "description": "nanoplex ractive rest api",
   "main": "reactive-rest-api.js",
   "scripts": {
