@@ -171,6 +171,18 @@ module RestApi {
 			});
 		}
 		
+		parse_value(value: string, type: string): any {
+			type = type.replace(/function /,"").match(/\w+/)[0];
+			
+			if (type === "Number") {
+				return parseInt(value, 10);
+			} else if (type === "Object") {
+				return JSON.stringify(value);
+			} else {
+				return value.toString();
+			}
+		}
+		
 		execute_method(method: (object: any) => Promise<string | void>, object_defenifion: any, paramerters: Rx.Observable<Parameter>): Promise<string | void> {
 			var object_copy = JSON.parse(JSON.stringify(object_defenifion));
 			
@@ -178,7 +190,7 @@ module RestApi {
 				paramerters.forEach(parameter => {
 					for (var prop in object_defenifion) {
 						if (prop === parameter.name) {
-							object_copy[prop] = parameter.value;
+							object_copy[prop] = this.parse_value(parameter.value, object_copy[prop]);
 						} else {
 							delete object_copy[prop];
 						}
