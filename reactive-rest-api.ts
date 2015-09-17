@@ -2,159 +2,137 @@
 /// <reference path="node_modules/rx/ts/rx" />
 /// <reference path="es6-promise.d.ts" />
 
-import http = require("http");
+//import http = require("http");
 
-//var http = require("http");
-//var Rx = require("rx");
+var http = require("http");
+var Rx = require("rx");
 
-module ReactiveRestApi {
-	class React {
-		static nodeReadableStream(stream: NodeJS.ReadableStream): Rx.Observable<Buffer> {
-			return Rx.Observable.create<Buffer>(observer => {
-				stream.on("data", chunk => observer.onNext(chunk));
-				stream.on("error", error => observer.onError(error));
-				stream.on("end", () => observer.onCompleted());
-			});
-		}
-	}
+module RestApi {
 	
-	export interface Route {
-		path: string;
-		method: string;
-		response: Function;
-		statusCode: number;
-		contentType: string;
-	}
-	
-	export interface DefaultRoute {
-		response;
-		statusCode: number;
-		contentType: string;
-	}
-	
-	
-	class Parameter {
-		name: string;
-		value: any;
-		
-		static hasParams(url: string): boolean {
-			return url.match(/\?/) !== null;
-		}
-		
-		static getParams(queryParamsString: string, body: NodeJS.ReadableStream): Rx.Observable<Parameter> {
-			var queryParams = this.parseQueryParams(queryParamsString);
-			
-			return this.parseBody(body)
-				.concat(Rx.Observable.fromArray(queryParams))
-		}
-		
-		private static parseQueryParams(queryParamsString: string): Parameter[] {
-			var pairs = queryParamsString.replace(/^(\?)?/, "").split("&");
-			
-			return pairs
-				.map(pair => pair.split("="))
-				.map(pair => {
-					return {
-						name: pair[0],
-						value: pair[1]
-					}
-				})
-		}
-		
-		private static object2parameters(obj: any): Rx.Observable<Parameter> {
-			return Rx.Observable.create<Parameter>(observer => {
-				for (var prop in obj) {
-					observer.onNext({
-						name: prop,
-						value: obj[prop]
-					});
-				}
-				
-				observer.onCompleted();
-			})
-		}
-		
-		private static parseBody(body: NodeJS.ReadableStream): Rx.Observable<Parameter> {
-			var paramerters: Parameter[] = [],
-				str: string,
-				json;
-				
-			return Rx.Observable.create<Parameter>(observer => {
-				var str: string = "";
-				
-				React.nodeReadableStream(body)
-					.forEach(
-						chunk => {
-							str += chunk;
-						}, 
-						observer.onError,
-						() => {
-							
-							if (str) {
-								var obj = JSON.parse(str);
-								
-								this.object2parameters(obj).subscribe(
-									observer.onNext,
-									observer.onError,
-									observer.onCompleted
-								);
-							}
-							else {
-								observer.onCompleted();
-							}
-						});
-			});
-		}
+	interface Parameter {
+		name: string
+		value: string;
 	}
 	
 	class Url {
-		path: string;
-		parameters: Rx.Observable<Parameter>;
+		path: string
+		method: string
+		parameters: Rx.Observable<Parameter>
 		
 		constructor(request: http.IncomingMessage) {
-			var url = request.url,
-				hasParams = Parameter.hasParams(url),
-				queryParams: string;
+			let url = request.url,
+				path = this.parse_path(url),
+				query_parameters = url.replace(new RegExp("^" + path), "");
 			
-			console.log(url, hasParams);
-			
-			this.path = hasParams ? this.getPath(url) : url;
-			
-			queryParams = url.replace(new RegExp("^" + this.path), "");
-			
-			if (hasParams)
-				this.parameters = Parameter.getParams(queryParams, request);
+			this.path = path;
+			this.method = request.method;
+			this.parameters = this.parse_parameters(query_parameters, request);
 		}
 		
-		private getPath(url: string): string {
-			return url.match(/^.+?\?/)[0].replace(/\?$/, "");
+		parse_path(url: string) {
+			let match = url.match(/^\/\w+/);
+			
+			return match ? match[0] : url;
+		} 
+		
+		parse_parameters(query_parameter_str: string, body: NodeJS.ReadableStream): Rx.Observable<Parameter> {
+			let query_parameters: Rx.Observable<Parameter> = 
+					Rx.Observable.fromArray(this.parse_query_parameters(query_parameter_str)),
+				body_parameters: Rx.Observable<Parameter> = 
+					this.parse_body_parameters(this.observable_readable_stream(body));
+			
+			return query_parameters;//.concat(body_parameters);
+		}
+		
+		parse_body_parameters(observale: Rx.Observable<Buffer>): Rx.Observable<Parameter> {
+			let str = "",
+				json: Parameter[];
+				
+			return null;
+		}
+		
+		observable_readable_stream(body: NodeJS.ReadableStream): Rx.Observable<Buffer> {
+			return Rx.Observable.create<Buffer>(observer => {
+				body.on("data", observer.onNext);
+				body.on("error", observer.onError);
+				body.on("end", () => observer.onCompleted());
+			});
+		}
+		
+		parse_query_parameters(query_parameter_str: string): Parameter[] {
+			let has_value: boolean = null,
+				has_params: boolean = false;
+			
+			if (query_parameter_str === "" || query_parameter_str === "/") has_value = false;
+			else if (query_parameter_str.match(/\/\w+/) !== null) has_value = true;
+			else if (query_parameter_str.match(/\/\?/) !== null) has_params = true;
+			
+			query_parameter_str = query_parameter_str.replace(/\/(\?)?/, "");
+			
+			if (has_value === true) {
+				return [{ 
+					name: "_id", 
+					value: query_parameter_str
+				}];	
+			}
+			else if (has_value === false) return undefined;
+			else if (has_params) {
+				return query_parameter_str.split("&")
+					.map(pair => pair.split("="))
+					.map(pair => {
+						return {
+							name: pair[0],
+							value: pair[1]
+						}
+					});
+			}
 		}
 	}
 	
-	export interface ServerOptionPath {
+	export interface Route<T> {
 		name: string;
-		path?: string;
-		promise: Promise<string>;
+		object_defenition: any;
+		get: (object: T) => Promise<string | void>;
+		get_all: (object: T) => Promise<string | void>;
+		post: (object: T) => Promise<string | void>;
+		put: (object: T) => Promise<string | void>;
+		delete: (object: T) => Promise<string | void>;
 	}
 	
-	export interface ServerOptions {
-		routePrefix: string;
+	export interface Options {
 		port: number;
-		objectDefenition: any;
-		get: ServerOptionPath;
-		get_all: ServerOptionPath;
-		post: ServerOptionPath;
-		put: ServerOptionPath;
-		delete: ServerOptionPath;
+		routes: Route<any>[];
 	}
 	
 	export class Server {
-		static create(options: ServerOptions) {
-			Rx.Observable.create<{request: http.IncomingMessage, routes: Route[], response: http.ServerResponse}>(observer => {
-				var server = http.createServer((request, response) => {
+		constructor(options: Options) {
+			this.create(options)
+				.map(server => {
+					return {
+						promise: this.get_route(server.url, server.routes),
+						response: server.response
+					};
+				})
+				.forEach(server => {
+					let res = server.response;
+					
+					server.promise.then(output => {
+						if (output) {
+							this.respond(output, 200, res);
+						} else {
+							this.respond('{"error": "no path found"}', 404, res);
+						}
+					}).catch(error => 
+						this.respond(`{"error": ${error}}`, 500, res));
+				},
+				error => {console.log("[ERROR]", error)});
+		}
+		create(options: Options): Rx.Observable<{ url: Url, routes: Route<any>[], response: http.ServerResponse}> {
+			return Rx.Observable.create<{ url: Url, routes: Route<any>[], response: http.ServerResponse}>(observer => {
+				let server = http.createServer((request, response) => {
 					observer.onNext({
-						request,
-						routes,
+						url: new Url(request),
+						routes: options.routes,
 						response
 					});
 				});
@@ -162,98 +140,53 @@ module ReactiveRestApi {
 				server.on("error", observer.onError);
 				
 				server.listen(options.port);
-			})
-			.map(server => {
-				var request = server.request,
-					method = request.method,
-					url = new Url(request);
+			});
+		}
+		respond(output: any, status_code: number, response: http.ServerResponse) {
+			response.writeHead(status_code, { "Content-Type": "application/json" });
+			response.statusCode = status_code;
+			response.end(output);
+		}
+		get_route(url: Url, routes: Route<any>[]): Promise<any> {
+			let method = url.method.toLocaleLowerCase();
+			
+			return new Promise<any>((resolve, reject) => {
+				let count = 0,
+					self = this;
+				
+				function routeFilter() {
+					method = (count === 0 && method === "get") ? "get_all" : method;
 					
-				return {
-					parameters: url.parameters,
-					route: this.routeFilter(url.path, method, server.routes),
-					response: server.response
-				}
-			})
-			.filter(server => this.defaultResponse(server, defaultRoute))
-			.forEach(server => {
-				var route = server.route,
-					output = this.getOutput(server.parameters, route.response);
-				
-				this.respond(route, server.response, output);
-			});
-		}
-		
-		private static respond(route: Route, response: http.ServerResponse, output: Promise<string>) {
-			response.writeHead(route.statusCode, {"Content-Type": route.contentType});
-			response.statusCode = route.statusCode;
-			
-			output.then(out => {
-				response.end(out);
-			})
-			.catch(error => {
-				response.statusCode = 500;
-				response.end(error);
-			});
-		}
-		
-		private static getOutput(parameters: Rx.Observable<Parameter>, func: Function): Promise<string> {
-			var parameterNames = this.getArgumentNames(func);
-			console.log(parameterNames);
-			var parameterArray: Parameter[] = [];
-			
-			return new Promise((resolve, reject) => {
-				parameters.forEach(
-					param => parameterArray.push(param),
-					error => {
-						throw error
-					},
-					() => {
-						var values = parameterNames.map(name => {
-							var parameter = parameterArray.filter(param => param.name === name)[0];
-							
-							if (parameter) {
-								return parameter.value;
-							}
+					routes.filter(route => ("/" + route.name === url.path))
+						.map(route => {
+							self.execute_method(route[method], route.object_defenition, url.parameters).then(resolve).catch(reject);
 						});
-						
-						func.apply(null, values).then(resolve).catch(reject);
-					});
+				}
+				
+				url.parameters.subscribe(
+					() => count++,
+					routeFilter,
+					routeFilter
+				);
 			});
 		}
 		
-		private static getArgumentNames(func: Function): string[] {
-			var str = func.toString().replace(/^function\s/, "");
-			var match = str.match(/\(.*?\)/);
-			if (match) {
-				str = match[0].replace(/[()\s]/g, "");
-				
-				return str.split(",");
-			}
-		}
-		
-		private static defaultResponse(server: { route: Route, parameters: Rx.Observable<Parameter>, response: http.ServerResponse }, defaultRoute: DefaultRoute): boolean {
-			var isError = server.route === undefined
+		execute_method(method: (object: any) => Promise<string | void>, object_defenifion: any, paramerters: Rx.Observable<Parameter>): Promise<string | void> {
+			var object_copy = JSON.parse(JSON.stringify(object_defenifion));
 			
-			if (isError) {
-				var route = server.route,
-					output = this.getOutput(server.parameters, route.response);
-				
-				server.route = {
-					path: null,
-					method: null,
-					response: defaultRoute.response,
-					statusCode: defaultRoute.statusCode,
-					contentType: defaultRoute.contentType
-				};
-				
-				this.respond(route, server.response, output);
-			}	
-			
-			return !isError;
+			return new Promise<string | void>((resolve, reject) => {
+				paramerters.forEach(parameter => {
+					for (var prop in object_defenifion) {
+						if (prop === parameter.name) {
+							object_copy[prop] = parameter.value;
+						} else {
+							delete object_copy[prop];
+						}
+					}
+				},
+				reject,
+				() => method(object_copy).then(resolve).catch(reject));
+			});
 		}
-		
-		private static routeFilter(path, method, routes: Route[]): Route {
-			return routes.filter(route => route.path === path && route.method === method)[0];
-		}
-	}	
+	}
 }

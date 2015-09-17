@@ -1,43 +1,26 @@
 /// <reference path="reactive-rest-api.ts" />
 
-function testResponse(name: string = "world"): Promise<string> {
-	return new Promise<string>(resolve => {
-		resolve(`hello ${name}`);
-	});
+interface item {
+	_id: number
+	test: string
 }
 
-
-var options: ReactiveRestApi.ServerOptions = {
-	"routePrefix": "/api",
-	"port": 9000,
-	"routes": [
-		{
-			"name": "test",
-			"object_defenition": {
-				"test": "",
-				"test1": ""
-			},
-			"get": {
-				"path": "/{test}",
-				"promise": new Promise<string>(resolve => resolve("get"))
-			},
-			"get_all": {
-				"promise": new Promise<string>(resolve => resolve("get all"))
-			},
-			"post": {
-				"path": "/{test, test1}",
-				"promise": new Promise<string>(resolve => resolve("post"))
-			},
-			"put": {
-				"path": "/{test, test1}",
-				"promise": new Promise<string>(resolve => resolve("put"))
-			},
-			"delete": {
-				"path": "/{test}",
-				"promise": new Promise<string>(resolve => resolve("delete"))
-			}
-		}
-	]
+var route: RestApi.Route<item> = {
+	name: "test",
+	object_defenition: {
+		_id: Number,
+		test: String
+	},
+	get: (obj: item) => new Promise<string>(resolve => resolve(JSON.stringify(obj))),
+	get_all: (obj) => new Promise<string>(resolve => resolve("get all")),
+	post: (obj: item) => new Promise<any>(resolve => resolve()),
+	put: (obj: item) => new Promise<any>(resolve => resolve()),
+	delete: (obj: item) => new Promise<any>(resolve => resolve())
 };
 
-ReactiveRestApi.Server.create(options);
+var options: RestApi.Options = {
+	port: 9000,
+	routes: [ route ]
+};
+
+new RestApi.Server(options);
