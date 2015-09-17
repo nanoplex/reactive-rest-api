@@ -151,24 +151,23 @@ module RestApi {
 			let method = url.method.toLocaleLowerCase();
 			
 			return new Promise<any>((resolve, reject) => {
-				let count = 0,
-					self = this;
-				
-				function routeFilter() {
-					method = (count === 0 && method === "get") ? "get_all" : method;
-					
-					routes.filter(route => ("/" + route.name === url.path))
-						.map(route => {
-							self.execute_method(route[method], route.object_defenition, url.parameters).then(resolve).catch(reject);
-						});
-				}
+				let count = 0;
 				
 				url.parameters.subscribe(
 					() => count++,
-					routeFilter,
-					routeFilter
+					() => this.route_filter(url, method, count, routes, { resolve, reject }),
+					() => this.route_filter(url, method, count, routes, { resolve, reject })
 				);
 			});
+		}
+		
+		route_filter(url: Url, method: string, count: number, routes: Route<any>[], promise: { resolve: (value?: any) => void, reject: (error?: any) => void }) {
+			method = (count === 0 && method === "get") ? "get_all" : method;
+			
+			routes.filter(route => ("/" + route.name === url.path))
+				.map(route => {
+					this.execute_method(route[method], route.object_defenition, url.parameters).then(promise.resolve).catch(promise.reject);
+				});
 		}
 		
 		parse_value(value: string, type: string): any {
